@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<body style="background:#020617;color:white;text-align:center;">
+
+<h2>🔐 Jarvis Login</h2>
+
+<h3>User (OTP)</h3>
+<input id="u" placeholder="Username"><br><br>
+<button onclick="sendOtp()">Send OTP</button><br><br>
+<input id="o" placeholder="Enter OTP"><br><br>
+<button onclick="verify()">Login</button>
+
+<hr>
+
+<h3>Owner 👑</h3>
+<input id="p" type="password" placeholder="Password"><br><br>
+<button onclick="owner()">Login</button>
+
+<script>
+async function sendOtp(){
+await fetch("/send-otp",{method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({username:u.value})})
+alert("OTP sent (check console)")
+}
+
+async function verify(){
+let r=await fetch("/verify-otp",{method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({username:u.value,otp:o.value})})
+let d=await r.json()
+if(d.success) location="/"
+else alert("Wrong OTP")
+}
+
+async function owner(){
+let r=await fetch("/owner-login",{method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({password:p.value})})
+let d=await r.json()
+if(d.success) location="/"
+else alert("Wrong password")
+}
+</script>
+
+</body>
+</html>
