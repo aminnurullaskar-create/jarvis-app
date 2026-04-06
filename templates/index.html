@@ -1,52 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{background:#0f0f0f;color:white;font-family:sans-serif;}
+#chat{height:75vh;overflow:auto;padding:10px;}
+.msg{padding:10px;margin:8px;border-radius:10px;max-width:70%;}
+.user{background:#00ffc3;color:black;margin-left:auto;}
+.bot{background:#1e1e1e;}
+#inputBox{position:fixed;bottom:0;width:100%;display:flex;}
+input{flex:1;padding:15px;background:#1e1e1e;border:none;color:white;}
+button{padding:15px;background:#00ffc3;border:none;}
+</style>
+</head>
+
+<body>
+
+<div style="padding:10px;background:#111;">
+  Jarvis AI 🤖 | {{username}}
+  <a href="/logout" style="float:right;color:red;">Logout</a>
+</div>
+
+<div id="chat"></div>
+
+<div id="inputBox">
+  <input id="msg" placeholder="Type...">
+  <button onclick="send()">Send</button>
+  <button onclick="startVoice()">🎤</button>
+</div>
+
+<div id="premiumBox" style="display:none;text-align:center;">
+  <h2>🚀 Jarvis Pro</h2>
+  <p>Pay ₹49 via UPI</p>
+  <h3>yourupi@okaxis</h3>
+  <button onclick="unlock()">I Paid</button>
+</div>
+
 <script>
-// 🎤 VOICE INPUT
-function startVoice(){
- let rec = new webkitSpeechRecognition();
- rec.onresult = (e)=>{
-   document.getElementById("msg").value = e.results[0][0].transcript;
- };
- rec.start();
+
+// LOAD HISTORY
+async function loadHistory(){
+ let res = await fetch("/history");
+ let data = await res.json();
+
+ data.forEach(c=>{
+   addMessage(c[1], c[0]);
+ });
 }
 
-// 🔊 VOICE OUTPUT
-function speak(text){
- let speech = new SpeechSynthesisUtterance(text);
- speech.lang = "en-US";
- speechSynthesis.speak(speech);
-}
-
-// ADD MESSAGE UI
-function addMessage(text, type){
- let chat = document.getElementById("chat");
+function addMessage(text,type){
  let div = document.createElement("div");
- div.innerText = text;
- div.style.margin = "10px";
- div.style.padding = "10px";
- div.style.borderRadius = "10px";
- div.style.background = type=="user" ? "#00ffc3" : "#222";
- div.style.color = type=="user" ? "black" : "white";
- chat.appendChild(div);
- chat.scrollTop = chat.scrollHeight;
+ div.className="msg "+type;
+ div.innerText=text;
+ document.getElementById("chat").appendChild(div);
 }
 
-// SEND MESSAGE
+// SEND
 async function send(){
- let input = document.getElementById("msg");
- let text = input.value;
+ let input=document.getElementById("msg");
+ let text=input.value;
  if(!text) return;
 
  addMessage(text,"user");
  input.value="";
 
- let res = await fetch("/chat",{
+ let res=await fetch("/chat",{
    method:"POST",
    headers:{"Content-Type":"application/json"},
    body:JSON.stringify({message:text})
  });
 
- let data = await res.json();
+ let data=await res.json();
+
+ if(data.reply=="LIMIT"){
+   document.getElementById("premiumBox").style.display="block";
+   return;
+ }
 
  addMessage(data.reply,"bot");
  speak(data.reply);
 }
+
+// VOICE
+function startVoice(){
+ let rec=new webkitSpeechRecognition();
+ rec.onresult=e=>{
+   document.getElementById("msg").value=e.results[0][0].transcript;
+ };
+ rec.start();
+}
+
+function speak(text){
+ let s=new SpeechSynthesisUtterance(text);
+ speechSynthesis.speak(s);
+}
+
+// UNLOCK
+async function unlock(){
+ await fetch("/unlock",{method:"POST"});
+ alert("Unlocked 🚀");
+ location.reload();
+}
+
+window.onload=loadHistory;
+
 </script>
+
+</body>
+</html>
