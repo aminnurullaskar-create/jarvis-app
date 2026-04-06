@@ -4,7 +4,7 @@ import requests
 app = Flask(__name__)
 
 # 🔑 YOUR API KEY (paste here)
-API_KEY = "gsk_SqDpi0gm52iZPKwwwLsQWGdyb3FYgl66bdLNFKy4MQt1JKdOrER"
+API_KEY =os.getenv"gsk_SqDpi0gm52iZPKwwwLsQWGdyb3FYgl66bdLNFKy4MQt1JKdOrER"
 
 # 🌐 API URL (using OpenAI-compatible endpoint)
 API_URL = "https://api.groq.com/open.ai/v1/chat/completions"
