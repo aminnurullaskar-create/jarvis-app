@@ -1,73 +1,82 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width">
+<title>Jarvis 2.0</title>
+
 <style>
-body{background:#020617;color:white;font-family:sans-serif;}
-.chat{height:75vh;overflow:auto;padding:10px;}
-.msg{padding:10px;margin:5px;border-radius:10px;max-width:70%;}
-.user{background:#2563eb;margin-left:auto;}
-.bot{background:#1e293b;}
-input{width:65%;padding:10px;}
-button{padding:10px;}
-.premium{position:fixed;top:10px;right:10px;}
+body {
+    background: linear-gradient(135deg, #0f172a, #020617);
+    color: white;
+    font-family: 'Poppins', sans-serif;
+}
+
+.chat-box {
+    height: 80vh;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.msg {
+    padding: 10px;
+    margin: 10px;
+    border-radius: 10px;
+    max-width: 70%;
+}
+
+.user {
+    background: #2563eb;
+    margin-left: auto;
+}
+
+.bot {
+    background: #1e293b;
+}
+
+input {
+    width: 80%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+}
+
+button {
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: #22c55e;
+    color: white;
+}
 </style>
+
 </head>
 
 <body>
 
-<button class="premium" onclick="premium()">💎 Premium</button>
+<h2 style="text-align:center;">🤖 Jarvis 2.0</h2>
 
-<div id="chat" class="chat"></div>
+<div class="chat-box" id="chat"></div>
 
-<input id="t" placeholder="Type your message...">
-<button onclick="send()">Send</button>
-<button onclick="voice()">🎤</button>
-<button onclick="img()">🎨</button>
+<div style="display:flex;">
+    <input id="msg" placeholder="Ask anything...">
+    <button onclick="send()">Send</button>
+</div>
 
 <script>
-function add(t,c){
-let d=document.createElement("div")
-d.className="msg "+c
-d.innerText=t
-chat.appendChild(d)
-}
+async function send() {
+    let msg = document.getElementById("msg").value;
 
-async function send(){
-let m=t.value
-if(!m) return;
+    let res = await fetch("/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({msg})
+    });
 
-add(m,"user")
+    let data = await res.json();
 
-let r=await fetch("/chat",{method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({message:m})})
-
-let d=await r.json()
-add(d.reply,"bot")
-t.value=""
-}
-
-function voice(){
-let r=new webkitSpeechRecognition()
-r.onresult=e=>{t.value=e.results[0][0].transcript}
-r.start()
-}
-
-async function img(){
-let r=await fetch("/generate-image",{method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({prompt:t.value})})
-let d=await r.json()
-
-let i=document.createElement("img")
-i.src=d.url
-i.style.width="200px"
-chat.appendChild(i)
-}
-
-function premium(){
-window.open("https://instagram.com/iamhasan_1122")
+    document.getElementById("chat").innerHTML += 
+        `<div class='msg user'>${msg}</div>`;
+    document.getElementById("chat").innerHTML += 
+        `<div class='msg bot'>${data.reply}</div>`;
 }
 </script>
 
