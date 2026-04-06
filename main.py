@@ -7,7 +7,7 @@ app = Flask(__name__)
 API_KEY = "gsk_SqDpi0gm52iZPKwwwLsQWGdyb3FYgl66bdLNFKy4MQt1JKdOrER"
 
 # 🌐 API URL (using OpenAI-compatible endpoint)
-API_URL = "https://api.openai.com/v1/chat/completions"
+API_URL = "https://api.groq.com/open.ai/v1/chat/completions"
 
 # 🎨 SIMPLE CHATGPT-LIKE UI
 HTML_UI = """
@@ -139,7 +139,7 @@ def chat():
     }
 
     payload = {
-        "model": "gpt-3.5-turbo",
+        "model": "llama3-8b-8192",
         "messages": [
             {"role": "system", "content": "You are Jarvis AI created by Mahmudul Hasan aka Hasan."},
             {"role": "user", "content": user_msg}
