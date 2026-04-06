@@ -1,45 +1,47 @@
 <!DOCTYPE html>
 <html>
-<body style="background:#020617;color:white;text-align:center;">
+<head>
+<title>Login</title>
+</head>
 
-<h2>🔐 Jarvis Login</h2>
+<body>
 
-<h3>User (OTP)</h3>
-<input id="u" placeholder="Username"><br><br>
-<button onclick="sendOtp()">Send OTP</button><br><br>
-<input id="o" placeholder="Enter OTP"><br><br>
-<button onclick="verify()">Login</button>
+<h2>Login</h2>
 
-<hr>
+<input id="username" placeholder="Enter name">
+<button onclick="sendOTP()">Send OTP</button>
 
-<h3>Owner 👑</h3>
-<input id="p" type="password" placeholder="Password"><br><br>
-<button onclick="owner()">Login</button>
+<br><br>
+
+<input id="otp" placeholder="Enter OTP">
+<button onclick="verify()">Verify</button>
 
 <script>
-async function sendOtp(){
-await fetch("/send-otp",{method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({username:u.value})})
-alert("OTP sent (check console)")
+let savedOTP = "";
+
+async function sendOTP() {
+    let username = document.getElementById("username").value;
+
+    let res = await fetch("/send-otp", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({username})
+    });
+
+    let data = await res.json();
+    savedOTP = data.otp;
+
+    alert("Your OTP: " + savedOTP); // TEMP
 }
 
-async function verify(){
-let r=await fetch("/verify-otp",{method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({username:u.value,otp:o.value})})
-let d=await r.json()
-if(d.success) location="/"
-else alert("Wrong OTP")
-}
+async function verify() {
+    let otp = document.getElementById("otp").value;
 
-async function owner(){
-let r=await fetch("/owner-login",{method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({password:p.value})})
-let d=await r.json()
-if(d.success) location="/"
-else alert("Wrong password")
+    if (otp == savedOTP) {
+        window.location = "/";
+    } else {
+        alert("Wrong OTP");
+    }
 }
 </script>
 
