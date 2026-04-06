@@ -15,7 +15,21 @@ function speak(text){
  speechSynthesis.speak(speech);
 }
 
-// MODIFY SEND
+// ADD MESSAGE UI
+function addMessage(text, type){
+ let chat = document.getElementById("chat");
+ let div = document.createElement("div");
+ div.innerText = text;
+ div.style.margin = "10px";
+ div.style.padding = "10px";
+ div.style.borderRadius = "10px";
+ div.style.background = type=="user" ? "#00ffc3" : "#222";
+ div.style.color = type=="user" ? "black" : "white";
+ chat.appendChild(div);
+ chat.scrollTop = chat.scrollHeight;
+}
+
+// SEND MESSAGE
 async function send(){
  let input = document.getElementById("msg");
  let text = input.value;
@@ -32,12 +46,7 @@ async function send(){
 
  let data = await res.json();
 
- if(data.reply=="LIMIT"){
-   document.getElementById("premium").style.display="flex";
-   return;
- }
-
  addMessage(data.reply,"bot");
- speak(data.reply); // 🔊 speak reply
+ speak(data.reply);
 }
 </script>
