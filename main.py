@@ -1,119 +1,160 @@
 from flask import Flask, render_template, request, jsonify, session, redirect
-import json, os, datetime
+import sqlite3, os
 from groq import Groq
 
 app = Flask(__name__)
 app.secret_key = "jarvis_secret"
 
-DAILY_LIMIT = 69
-OWNER_PASSWORD = "784176"
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+# ================= DATABASE =================
+def init_db():
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
 
-def load(file):
-    if os.path.exists(file):
-        return json.load(open(file))
-    return {}
+    c.execute("""CREATE TABLE IF NOT EXISTS users(
+        username TEXT PRIMARY KEY,
+        otp TEXT,
+        messages INTEGER
+    )""")
 
-def save(file, data):
-    json.dump(data, open(file, "w"))
+    c.execute("""CREATE TABLE IF NOT EXISTS chats(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT,
+        role TEXT,
+        message TEXT
+    )""")
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# ================= ROUTES =================
 
 @app.route("/")
 def home():
     if "user" not in session:
         return redirect("/login")
-    return render_template("index.html")
+    return render_template("index.html", username=session["user"])
 
 @app.route("/login")
 def login():
     return render_template("login.html")
 
-# -------- OTP --------
-otp_store = {}
-
 @app.route("/send-otp", methods=["POST"])
 def send_otp():
-    user = request.json["username"]
-    otp_store[user] = "1234"
-    return jsonify({"status": "sent"})
+    username = request.json.get("username")
+
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+
+    c.execute("INSERT OR REPLACE INTO users VALUES (?, ?, ?)",
+              (username, "1234", 0))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"status": "OTP SENT"})
 
 @app.route("/verify-otp", methods=["POST"])
-def verify():
-    user = request.json["username"]
-    otp = request.json["otp"]
+def verify_otp():
+    username = request.json.get("username")
+    otp = request.json.get("otp")
 
-    if otp_store.get(user) == otp:
-        session["user"] = user
-        return jsonify({"status": "ok"})
-    return jsonify({"status": "fail"})
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
 
-# -------- CHAT --------
+    c.execute("SELECT * FROM users WHERE username=? AND otp=?",
+              (username, otp))
+
+    user = c.fetchone()
+    conn.close()
+
+    if user:
+        session["user"] = username
+        return jsonify({"status": "SUCCESS"})
+    return jsonify({"status": "FAILED"})
+
 @app.route("/chat", methods=["POST"])
 def chat():
     if "user" not in session:
-        return jsonify({"reply": "Login first"})
+        return jsonify({"reply": "Login required"})
 
-    user = session["user"]
-    premium = load("premium.json")
-    memory = load("memory.json")
+    username = session["user"]
+    msg = request.json.get("message")
 
-    today = str(datetime.date.today())
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
 
-    if user not in premium:
-        premium[user] = {"date": today, "count": 0, "premium": False}
+    c.execute("SELECT messages FROM users WHERE username=?", (username,))
+    messages = c.fetchone()[0]
 
-    if premium[user]["date"] != today:
-        premium[user]["date"] = today
-        premium[user]["count"] = 0
-
-    if not premium[user]["premium"] and premium[user]["count"] >= DAILY_LIMIT:
+    if messages >= 10:
         return jsonify({"reply": "LIMIT"})
 
-    msg = request.json["message"]
+    c.execute("UPDATE users SET messages = messages + 1 WHERE username=?", (username,))
+    conn.commit()
 
-    # MEMORY
-    history = memory.get(user, [])
-    history.append({"role": "user", "content": msg})
-    history = history[-5:]  # last 5 messages
+    # SAVE USER MESSAGE
+    c.execute("INSERT INTO chats (username, role, message) VALUES (?, ?, ?)",
+              (username, "user", msg))
 
-    messages = [
-        {"role": "system", "content": "You are Jarvis, a smart, cool AI. Short, powerful answers."}
-    ] + history
+    try:
+        completion = client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=[
+                {"role": "system", "content": f"You are Jarvis AI. User is {username}. Be smart and helpful."},
+                {"role": "user", "content": msg}
+            ]
+        )
+        reply = completion.choices[0].message.content
+    except:
+        reply = "AI error ⚠️"
 
-    completion = client.chat.completions.create(
-        model="llama3-70b-8192",
-        messages=messages
-    )
+    # SAVE BOT REPLY
+    c.execute("INSERT INTO chats (username, role, message) VALUES (?, ?, ?)",
+              (username, "bot", reply))
 
-    reply = completion.choices[0].message.content
+    conn.commit()
+    conn.close()
 
-    history.append({"role": "assistant", "content": reply})
-    memory[user] = history
+    return jsonify({"reply": reply})
 
-    premium[user]["count"] += 1
+@app.route("/history")
+def history():
+    if "user" not in session:
+        return jsonify([])
 
-    save("premium.json", premium)
-    save("memory.json", memory)
+    username = session["user"]
 
-    return jsonify({
-        "reply": reply,
-        "left": DAILY_LIMIT - premium[user]["count"]
-    })
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
 
-# -------- OWNER --------
-@app.route("/make-premium", methods=["POST"])
-def make_premium():
-    if request.json.get("password") != OWNER_PASSWORD:
-        return jsonify({"status": "no"})
+    c.execute("SELECT role, message FROM chats WHERE username=?", (username,))
+    chats = c.fetchall()
 
-    user = request.json.get("user")
-    data = load("premium.json")
+    conn.close()
 
-    if user in data:
-        data[user]["premium"] = True
-        save("premium.json", data)
+    return jsonify(chats)
 
-    return jsonify({"status": "ok"})
+@app.route("/unlock", methods=["POST"])
+def unlock():
+    username = session.get("user")
+
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+
+    c.execute("UPDATE users SET messages=0 WHERE username=?", (username,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"status": "unlocked"})
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
