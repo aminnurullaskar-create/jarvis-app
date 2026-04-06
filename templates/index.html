@@ -1,36 +1,43 @@
-<!DOCTYPE html>
-<html>
-<head>
-<title>Login</title>
-</head>
-<body style="background:black;color:white;text-align:center">
-
-<h2>Login to Jarvis</h2>
-
-<input id="user" placeholder="Username"><br><br>
-<button onclick="sendOtp()">Send OTP</button><br><br>
-
-<input id="otp" placeholder="Enter OTP"><br><br>
-<button onclick="verify()">Login</button>
-
 <script>
-async function sendOtp(){
- let user = document.getElementById("user").value;
- await fetch("/send-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:user})});
- alert("OTP is 1234");
+// 🎤 VOICE INPUT
+function startVoice(){
+ let rec = new webkitSpeechRecognition();
+ rec.onresult = (e)=>{
+   document.getElementById("msg").value = e.results[0][0].transcript;
+ };
+ rec.start();
 }
 
-async function verify(){
- let user=document.getElementById("user").value;
- let otp=document.getElementById("otp").value;
+// 🔊 VOICE OUTPUT
+function speak(text){
+ let speech = new SpeechSynthesisUtterance(text);
+ speech.lang = "en-US";
+ speechSynthesis.speak(speech);
+}
 
- let res=await fetch("/verify-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:user,otp:otp})});
- let data=await res.json();
+// MODIFY SEND
+async function send(){
+ let input = document.getElementById("msg");
+ let text = input.value;
+ if(!text) return;
 
- if(data.status=="ok") location.href="/";
- else alert("Wrong OTP");
+ addMessage(text,"user");
+ input.value="";
+
+ let res = await fetch("/chat",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({message:text})
+ });
+
+ let data = await res.json();
+
+ if(data.reply=="LIMIT"){
+   document.getElementById("premium").style.display="flex";
+   return;
+ }
+
+ addMessage(data.reply,"bot");
+ speak(data.reply); // 🔊 speak reply
 }
 </script>
-
-</body>
-</html>
