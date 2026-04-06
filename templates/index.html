@@ -1,82 +1,34 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Jarvis 2.0</title>
-
-<style>
-body {
-    background: linear-gradient(135deg, #0f172a, #020617);
-    color: white;
-    font-family: 'Poppins', sans-serif;
-}
-
-.chat-box {
-    height: 80vh;
-    overflow-y: auto;
-    padding: 10px;
-}
-
-.msg {
-    padding: 10px;
-    margin: 10px;
-    border-radius: 10px;
-    max-width: 70%;
-}
-
-.user {
-    background: #2563eb;
-    margin-left: auto;
-}
-
-.bot {
-    background: #1e293b;
-}
-
-input {
-    width: 80%;
-    padding: 12px;
-    border-radius: 10px;
-    border: none;
-}
-
-button {
-    padding: 12px;
-    border: none;
-    border-radius: 10px;
-    background: #22c55e;
-    color: white;
-}
-</style>
-
+<title>Login</title>
 </head>
+<body style="background:black;color:white;text-align:center">
 
-<body>
+<h2>Login to Jarvis</h2>
 
-<h2 style="text-align:center;">🤖 Jarvis 2.0</h2>
+<input id="user" placeholder="Username"><br><br>
+<button onclick="sendOtp()">Send OTP</button><br><br>
 
-<div class="chat-box" id="chat"></div>
-
-<div style="display:flex;">
-    <input id="msg" placeholder="Ask anything...">
-    <button onclick="send()">Send</button>
-</div>
+<input id="otp" placeholder="Enter OTP"><br><br>
+<button onclick="verify()">Login</button>
 
 <script>
-async function send() {
-    let msg = document.getElementById("msg").value;
+async function sendOtp(){
+ let user = document.getElementById("user").value;
+ await fetch("/send-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:user})});
+ alert("OTP is 1234");
+}
 
-    let res = await fetch("/chat", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({msg})
-    });
+async function verify(){
+ let user=document.getElementById("user").value;
+ let otp=document.getElementById("otp").value;
 
-    let data = await res.json();
+ let res=await fetch("/verify-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:user,otp:otp})});
+ let data=await res.json();
 
-    document.getElementById("chat").innerHTML += 
-        `<div class='msg user'>${msg}</div>`;
-    document.getElementById("chat").innerHTML += 
-        `<div class='msg bot'>${data.reply}</div>`;
+ if(data.status=="ok") location.href="/";
+ else alert("Wrong OTP");
 }
 </script>
 
