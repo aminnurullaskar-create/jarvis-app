@@ -1,5 +1,6 @@
- from flask import Flask, render_template, request, jsonify, session, redirect
-import json, os, random, datetime
+from flask import Flask, render_template, request, jsonify, session, redirect
+import json, os, datetime
+from groq import Groq
 
 app = Flask(__name__)
 app.secret_key = "jarvis_secret"
@@ -7,18 +8,16 @@ app.secret_key = "jarvis_secret"
 DAILY_LIMIT = 69
 OWNER_PASSWORD = "784176"
 
-# ---------- HELPERS ----------
-def load_json(file):
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
+def load(file):
     if os.path.exists(file):
         return json.load(open(file))
     return {}
 
-def save_json(file, data):
+def save(file, data):
     json.dump(data, open(file, "w"))
 
-otp_store = {}
-
-# ---------- ROUTES ----------
 @app.route("/")
 def home():
     if "user" not in session:
@@ -29,93 +28,92 @@ def home():
 def login():
     return render_template("login.html")
 
-# ---------- OTP ----------
+# -------- OTP --------
+otp_store = {}
+
 @app.route("/send-otp", methods=["POST"])
 def send_otp():
-    username = request.json["username"]
-    otp = str(random.randint(1000,9999))
-    otp_store[username] = otp
-    print("OTP:", otp)
-    return jsonify({"msg":"OTP sent (check console)"})
+    user = request.json["username"]
+    otp_store[user] = "1234"
+    return jsonify({"status": "sent"})
 
 @app.route("/verify-otp", methods=["POST"])
 def verify():
-    username = request.json["username"]
+    user = request.json["username"]
     otp = request.json["otp"]
 
-    if otp_store.get(username) == otp:
-        session["user"] = username
-        return jsonify({"success":True})
-    return jsonify({"success":False})
+    if otp_store.get(user) == otp:
+        session["user"] = user
+        return jsonify({"status": "ok"})
+    return jsonify({"status": "fail"})
 
-# ---------- OWNER ----------
-@app.route("/owner-login", methods=["POST"])
-def owner():
-    if request.json["password"] == OWNER_PASSWORD:
-        session["user"] = "OWNER"
-        return jsonify({"success":True})
-    return jsonify({"success":False})
-
-# ---------- CHAT ----------
+# -------- CHAT --------
 @app.route("/chat", methods=["POST"])
 def chat():
-    user = session.get("user")
-    msg = request.json["message"]
+    if "user" not in session:
+        return jsonify({"reply": "Login first"})
 
-    # OWNER = unlimited
-    if user == "OWNER":
-        return jsonify({"reply": f"👑 OWNER MODE: {msg}"})
-
-    # Load user daily data
-    file = f"{user}_daily.json"
-    data = load_json(file)
+    user = session["user"]
+    premium = load("premium.json")
+    memory = load("memory.json")
 
     today = str(datetime.date.today())
 
-    # Reset if new day
-    if data.get("date") != today:
-        data = {
-            "date": today,
-            "count": 0
-        }
+    if user not in premium:
+        premium[user] = {"date": today, "count": 0, "premium": False}
 
-    premium = load_json("premium.json")
+    if premium[user]["date"] != today:
+        premium[user]["date"] = today
+        premium[user]["count"] = 0
 
-    # Limit check
-    if user not in premium and data["count"] >= DAILY_LIMIT:
-        return jsonify({
-            "reply": "🚫 Daily limit (69) finished. Come back tomorrow or go Premium 💎"
-        })
+    if not premium[user]["premium"] and premium[user]["count"] >= DAILY_LIMIT:
+        return jsonify({"reply": "LIMIT"})
 
-    # AI response (simple for now)
-    reply = f"Jarvis: {msg}"
+    msg = request.json["message"]
 
-    # Update count
-    data["count"] += 1
-    save_json(file, data)
+    # MEMORY
+    history = memory.get(user, [])
+    history.append({"role": "user", "content": msg})
+    history = history[-5:]  # last 5 messages
 
-    return jsonify({"reply": reply})
+    messages = [
+        {"role": "system", "content": "You are Jarvis, a smart, cool AI. Short, powerful answers."}
+    ] + history
 
-# ---------- PREMIUM ----------
-@app.route("/make-premium", methods=["POST"])
-def make_premium():
-    username = request.json["username"]
+    completion = client.chat.completions.create(
+        model="llama3-70b-8192",
+        messages=messages
+    )
 
-    premium = load_json("premium.json")
-    if username not in premium:
-        premium.append(username)
+    reply = completion.choices[0].message.content
 
-    save_json("premium.json", premium)
+    history.append({"role": "assistant", "content": reply})
+    memory[user] = history
 
-    return jsonify({"msg":"Upgraded"})
+    premium[user]["count"] += 1
 
-# ---------- IMAGE ----------
-@app.route("/generate-image", methods=["POST"])
-def img():
-    prompt = request.json["prompt"]
+    save("premium.json", premium)
+    save("memory.json", memory)
+
     return jsonify({
-        "url": f"https://dummyimage.com/512x512/000/fff&text={prompt}"
+        "reply": reply,
+        "left": DAILY_LIMIT - premium[user]["count"]
     })
 
+# -------- OWNER --------
+@app.route("/make-premium", methods=["POST"])
+def make_premium():
+    if request.json.get("password") != OWNER_PASSWORD:
+        return jsonify({"status": "no"})
+
+    user = request.json.get("user")
+    data = load("premium.json")
+
+    if user in data:
+        data[user]["premium"] = True
+        save("premium.json", data)
+
+    return jsonify({"status": "ok"})
+
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
