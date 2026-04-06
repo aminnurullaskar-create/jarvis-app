@@ -3,45 +3,32 @@
 <head>
 <title>Login</title>
 </head>
+<body style="background:black;color:white;text-align:center">
 
-<body>
+<h2>Login to Jarvis</h2>
 
-<h2>Login</h2>
+<input id="user" placeholder="Username"><br><br>
+<button onclick="sendOtp()">Send OTP</button><br><br>
 
-<input id="username" placeholder="Enter name">
-<button onclick="sendOTP()">Send OTP</button>
-
-<br><br>
-
-<input id="otp" placeholder="Enter OTP">
-<button onclick="verify()">Verify</button>
+<input id="otp" placeholder="Enter OTP"><br><br>
+<button onclick="verify()">Login</button>
 
 <script>
-let savedOTP = "";
-
-async function sendOTP() {
-    let username = document.getElementById("username").value;
-
-    let res = await fetch("/send-otp", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({username})
-    });
-
-    let data = await res.json();
-    savedOTP = data.otp;
-
-    alert("Your OTP: " + savedOTP); // TEMP
+async function sendOtp(){
+ let user = document.getElementById("user").value;
+ await fetch("/send-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:user})});
+ alert("OTP is 1234");
 }
 
-async function verify() {
-    let otp = document.getElementById("otp").value;
+async function verify(){
+ let user=document.getElementById("user").value;
+ let otp=document.getElementById("otp").value;
 
-    if (otp == savedOTP) {
-        window.location = "/";
-    } else {
-        alert("Wrong OTP");
-    }
+ let res=await fetch("/verify-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:user,otp:otp})});
+ let data=await res.json();
+
+ if(data.status=="ok") location.href="/";
+ else alert("Wrong OTP");
 }
 </script>
 
